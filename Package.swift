@@ -1,4 +1,5 @@
-// swift-tools-version: 5.9
+
+ // swift-tools-version: 5.9
 import PackageDescription
 
 let package = Package(
@@ -20,7 +21,21 @@ let package = Package(
     targets: [
         .target(
             name: "StratumMobileCore",
-            path: "Sources/StratumMobileCore"
+            path: "Sources/StratumMobileCore",
+            sources: [
+                "BitcoinHash.swift",
+                "BitcoinHeader.swift",
+                "CoinbaseBuilder.swift",
+                "MerkleTree.swift",
+                "MiningBenchmark.swift",
+                "MiningDashboard.swift",
+                "MiningEngine.swift",
+                "NonceMiner.swift",
+                "ShareTarget.swift",
+                "StratumClient.swift",
+                "StratumJob.swift",
+                "StratumPoolSession.swift"
+            ]
         ),
         .executableTarget(
             name: "StratumMobileApp",
