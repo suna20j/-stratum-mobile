@@ -1,0 +1,64 @@
+
+import Foundation
+
+public enum ShareTargetError: Error {
+    case invalidDifficulty
+    case invalidTarget
+}
+
+public enum ShareTarget {
+
+    // Bitcoin difficulty-1 target
+    private static let difficultyOneTarget =
+        "00000000ffff0000000000000000000000000000000000000000000000000000"
+
+    public static func calculate(
+        difficulty: Double
+    ) throws -> Data {
+
+        guard difficulty.isFinite, difficulty > 0 else {
+            throw ShareTargetError.invalidDifficulty
+        }
+
+        guard let baseTarget = decodeHex(difficultyOneTarget) else {
+            throw ShareTargetError.invalidTarget
+        }
+
+        // Difficulty scaling using arbitrary precision integer arithmetic.
+        var result = [UInt8](repeating: 0, count: 32)
+        var remainder = 0.0
+
+        for index in 0..<32 {
+            let value = Double(baseTarget[index]) / difficulty + remainder
+            let byte = Int(value)
+
+            result[index] = UInt8(max(0, min(255, byte)))
+            remainder = (value - Double(byte)) * 256.0
+        }
+
+        return Data(result)
+    }
+
+    private static func decodeHex(_ hex: String) -> Data? {
+        guard hex.count == 64 else { return nil }
+
+        var result = Data()
+        var index = hex.startIndex
+
+        while index < hex.endIndex {
+            let next = hex.index(index, offsetBy: 2)
+
+            guard let byte = UInt8(
+                hex[index..<next],
+                radix: 16
+            ) else {
+                return nil
+            }
+
+            result.append(byte)
+            index = next
+        }
+
+        return result
+    }
+}
