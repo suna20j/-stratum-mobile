@@ -5,6 +5,12 @@ public struct NonceMiningResult {
     public let nonce: UInt32
     public let hash: Data
     public let hashesChecked: UInt64
+
+    public init(nonce: UInt32, hash: Data, hashesChecked: UInt64) {
+        self.nonce = nonce
+        self.hash = hash
+        self.hashesChecked = hashesChecked
+    }
 }
 
 public enum NonceMiner {
@@ -30,7 +36,7 @@ public enum NonceMiner {
             let hash = workingHeader.hash()
             checked += 1
 
-            if isBelowTarget(hash, target: target) {
+            if meetsTarget(hash: hash, target: target) {
                 return NonceMiningResult(
                     nonce: nonce,
                     hash: hash,
@@ -48,25 +54,24 @@ public enum NonceMiner {
         return nil
     }
 
-    private static func isBelowTarget(
-        _ hash: Data,
+    public static func meetsTarget(
+        hash: Data,
         target: Data
     ) -> Bool {
 
-        guard hash.count == 32 else {
+        guard hash.count == 32, target.count == 32 else {
             return false
         }
 
-        // Bitcoin interprets the SHA-256d digest
-        // as a little-endian integer.
-        let bitcoinHash = Data(hash.reversed())
-
         for index in 0..<32 {
-            if bitcoinHash[index] < target[index] {
+            let hashByte = hash[31 - index]
+            let targetByte = target[index]
+
+            if hashByte < targetByte {
                 return true
             }
 
-            if bitcoinHash[index] > target[index] {
+            if hashByte > targetByte {
                 return false
             }
         }
