@@ -11,41 +11,64 @@ public enum ShareTarget {
     private static let difficultyOneTarget =
         "00000000ffff0000000000000000000000000000000000000000000000000000"
 
-    public static func calculate(
-        difficulty: Double
-    ) throws -> Data {
+    private static let scale: UInt64 = 1_000_000_000
 
-        guard difficulty.isFinite,
-              difficulty > 0 else {
+    public static func calculate(difficulty: Double) throws -> Data {
+
+        guard difficulty.isFinite, difficulty > 0 else {
             throw ShareTargetError.invalidDifficulty
         }
 
-        guard let base = decodeHex(difficultyOneTarget) else {
-            throw ShareTargetError.invalidTarget
-        }
+        let scaled = difficulty * Double(scale)
 
-        // Convert difficulty to a fixed-point integer.
-        let scale: UInt64 = 1_000_000_000
-
-        guard difficulty <= Double(UInt64.max) / Double(scale) else {
+        guard scaled.isFinite,
+              scaled >= 1,
+              scaled < Double(UInt64.max) else {
             throw ShareTargetError.invalidDifficulty
         }
 
-        let divisor = UInt64(difficulty * Double(scale))
+        let divisor = UInt64(scaled)
 
         guard divisor > 0 else {
             throw ShareTargetError.invalidDifficulty
         }
 
+        guard var bytes = decodeHex(difficultyOneTarget),
+              bytes.count == 32 else {
+            throw ShareTargetError.invalidTarget
+        }
+
+        // Multipliziere den 256-Bit-Zielwert mit der Skalierung.
+        var carry: UInt64 = 0
+
+        for index in stride(from: 31, through: 0, by: -1) {
+            let value = UInt64(bytes[index]) * scale + carry
+            bytes[index] = UInt8(value & 0xFF)
+            carry = value >> 8
+        }
+
+        guard carry == 0 else {
+            throw ShareTargetError.invalidTarget
+        }
+
+        // Teile den 256-Bit-Wert durch die Schwierigkeit.
         var remainder: UInt64 = 0
         var output = [UInt8](repeating: 0, count: 32)
 
         for index in 0..<32 {
-            let numerator =
-                UInt64(base[index]) * scale + remainder
+            let high = remainder >> 56
+            let low = (remainder << 8) | UInt64(bytes[index])
 
-            output[index] = UInt8(numerator / divisor)
-            remainder = numerator % divisor
+            let result = divisor.dividingFullWidth(
+                (high: high, low: low)
+            )
+
+            guard result.quotient <= 255 else {
+                throw ShareTargetError.invalidTarget
+            }
+
+            output[index] = UInt8(result.quotient)
+            remainder = result.remainder
         }
 
         return Data(output)
