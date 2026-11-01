@@ -3,13 +3,16 @@ name: test-and-build
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   test:
+    name: Swift Tests
     runs-on: macos-latest
 
     steps:
@@ -23,6 +26,7 @@ jobs:
         run: swift test
 
   build:
+    name: Build iOS Simulator App
     runs-on: macos-latest
 
     steps:
@@ -34,26 +38,47 @@ jobs:
 
       - name: Generate Xcode project
         run: |
-          pwd
+          echo "Repository files:"
           ls -la
-          xcodegen generate --spec project.yml
-          find . -maxdepth 4 -name "*.xcodeproj" -print
 
-      - name: Build iOS Simulator app
+          echo "Generating project from project.yml"
+          xcodegen generate --spec project.yml
+
+          echo "Generated projects:"
+          find . -name "*.xcodeproj" -print
+
+      - name: Find project and scheme
+        id: project
         run: |
-          PROJECT=$(find . -maxdepth 4 -name "*.xcodeproj" -print -quit)
+          PROJECT=$(find . -maxdepth 5 -name "*.xcodeproj" -print -quit)
 
           if [ -z "$PROJECT" ]; then
-            echo "ERROR: No .xcodeproj file was generated."
-            find . -maxdepth 4 -type f -name "project.yml" -o -name "*.xcodeproj"
+            echo "ERROR: No Xcode project found"
             exit 1
           fi
 
-          echo "Using project: $PROJECT"
+          echo "Project found: $PROJECT"
 
+          xcodebuild -list -project "$PROJECT"
+
+          SCHEME=$(xcodebuild -list -json -project "$PROJECT" | \
+            python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["project"]["schemes"][0])')
+
+          if [ -z "$SCHEME" ]; then
+            echo "ERROR: No Xcode scheme found"
+            exit 1
+          fi
+
+          echo "Scheme found: $SCHEME"
+
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
+
+      - name: Build iOS Simulator app
+        run: |
           xcodebuild \
-            -project "$PROJECT" \
-            -scheme StratumMobileApp \
+            -project "${{ steps.project.outputs.project }}" \
+            -scheme "${{ steps.project.outputs.scheme }}" \
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
@@ -65,5 +90,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: StratumMobile-iOS-Simulator
-          path: build/DerivedData/Build/Products/Debug-iphonesimulator/StratumMobileApp.app
+          path: build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
           if-no-files-found: error
