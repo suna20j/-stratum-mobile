@@ -2,6 +2,7 @@
 import Foundation
 
 public struct StratumJob {
+
     public let jobID: String
     public let previousHash: String
     public let coinbasePart1: String
@@ -43,5 +44,21 @@ public struct StratumJob {
         self.bits = bits
         self.timestamp = timestamp
         self.cleanJobs = cleanJobs
+    }
+
+    /// Creates a Bitcoin header from this job and a calculated Merkle root.
+    public func makeHeader(
+        merkleRoot: Data,
+        nonce: UInt32 = 0
+    ) throws -> BitcoinHeader {
+
+        try BitcoinHeader(
+            stratumVersion: version,
+            stratumPreviousHash: previousHash,
+            merkleRoot: merkleRoot,
+            stratumTimestamp: timestamp,
+            stratumBits: bits,
+            nonce: nonce
+        )
     }
 }
