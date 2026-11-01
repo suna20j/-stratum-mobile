@@ -1,0 +1,32 @@
+name: StratumMobile
+
+options:
+  bundleIdPrefix: com.suna20j
+  deploymentTarget:
+    iOS: "16.0"
+
+targets:
+  StratumMobileCore:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Sources/StratumMobileCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.suna20j.stratummobile.core
+
+  StratumMobileApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/StratumMobileApp
+    dependencies:
+      - target: StratumMobileCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.suna20j.stratummobile
+        PRODUCT_NAME: StratumMobile
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Stratum Mobile
