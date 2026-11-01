@@ -1,76 +1,65 @@
 
-import Foundation
+import XCTest
+@testable import StratumMobileCore
 
-public struct NonceMiningResult {
-    public let nonce: UInt32
-    public let hash: Data
-    public let hashesChecked: UInt64
-}
+final class NonceMinerTests: XCTestCase {
 
-public enum NonceMiner {
+    func testHashBelowTargetIsAccepted() {
+        let hash = Data(repeating: 0x00, count: 32)
+        let target = Data(repeating: 0xff, count: 32)
 
-    public static func scan(
-        header: BitcoinHeader,
-        startingNonce: UInt32 = 0,
-        count: UInt64 = 100_000,
-        target: Data
-    ) -> NonceMiningResult? {
-
-        guard target.count == 32, count > 0 else {
-            return nil
-        }
-
-        var workingHeader = header
-        var checked: UInt64 = 0
-        var nonce = startingNonce
-
-        while checked < count {
-            workingHeader.nonce = nonce
-
-            let hash = workingHeader.hash()
-            checked += 1
-
-            if meetsTarget(hash: hash, target: target) {
-                return NonceMiningResult(
-                    nonce: nonce,
-                    hash: hash,
-                    hashesChecked: checked
-                )
-            }
-
-            if nonce == UInt32.max {
-                break
-            }
-
-            nonce += 1
-        }
-
-        return nil
+        XCTAssertTrue(
+            NonceMiner.meetsTarget(
+                hash: hash,
+                target: target
+            )
+        )
     }
 
-    public static func meetsTarget(
-        hash: Data,
-        target: Data
-    ) -> Bool {
+    func testHashAboveTargetIsRejected() {
+        let hash = Data(repeating: 0xff, count: 32)
+        let target = Data(repeating: 0x00, count: 32)
 
-        guard hash.count == 32,
-              target.count == 32 else {
-            return false
-        }
+        XCTAssertFalse(
+            NonceMiner.meetsTarget(
+                hash: hash,
+                target: target
+            )
+        )
+    }
 
-        for index in 0..<32 {
-            let hashByte = hash[31 - index]
-            let targetByte = target[index]
+    func testEqualHashAndTargetAreAccepted() {
+        let value = Data(repeating: 0x42, count: 32)
 
-            if hashByte < targetByte {
-                return true
-            }
+        XCTAssertTrue(
+            NonceMiner.meetsTarget(
+                hash: value,
+                target: value
+            )
+        )
+    }
 
-            if hashByte > targetByte {
-                return false
-            }
-        }
+    func testInvalidHashLengthIsRejected() {
+        let hash = Data(repeating: 0x00, count: 31)
+        let target = Data(repeating: 0xff, count: 32)
 
-        return true
+        XCTAssertFalse(
+            NonceMiner.meetsTarget(
+                hash: hash,
+                target: target
+            )
+        )
+    }
+
+    func testInvalidTargetLengthIsRejected() {
+        let hash = Data(repeating: 0x00, count: 32)
+        let target = Data(repeating: 0xff, count: 31)
+
+        XCTAssertFalse(
+            NonceMiner.meetsTarget(
+                hash: hash,
+                target: target
+            )
+        )
     }
 }
