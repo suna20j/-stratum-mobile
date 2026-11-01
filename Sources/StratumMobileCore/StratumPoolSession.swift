@@ -9,10 +9,12 @@ public final class StratumPoolSession {
 
     private let subscribeID = 1
     private let authorizeID = 2
+    private var nextSubmitID = 3
 
     private var buffer = ""
     private var subscriptionSent = false
     private var authorized = false
+    private var pendingSubmitIDs = Set<Int>()
 
     public private(set) var extraNonce1: String?
     public private(set) var extraNonce2Size: Int?
@@ -72,6 +74,51 @@ public final class StratumPoolSession {
         ])
     }
 
+    /// Sends a Stratum mining.submit request.
+    /// Values must already be encoded in the format expected by the pool.
+    public func submitShare(
+        jobID: String,
+        extraNonce2: String,
+        nTime: String,
+        nonce: String
+    ) {
+        guard authorized else {
+            onStatus?("Share nicht gesendet: Pool nicht angemeldet")
+            return
+        }
+
+        guard
+            let expectedSize = extraNonce2Size,
+            extraNonce2.count == expectedSize * 2,
+            isHex(extraNonce2),
+            nTime.count == 8,
+            isHex(nTime),
+            nonce.count == 8,
+            isHex(nonce)
+        else {
+            onStatus?("Share nicht gesendet: Ungültiges Format")
+            return
+        }
+
+        let requestID = nextSubmitID
+        nextSubmitID += 1
+        pendingSubmitIDs.insert(requestID)
+
+        send([
+            "id": requestID,
+            "method": "mining.submit",
+            "params": [
+                workerName,
+                jobID,
+                extraNonce2.lowercased(),
+                nTime.lowercased(),
+                nonce.lowercased()
+            ]
+        ])
+
+        onStatus?("Share an Pool gesendet")
+    }
+
     private func send(_ message: [String: Any]) {
         guard
             let data = try? JSONSerialization.data(
@@ -126,7 +173,13 @@ public final class StratumPoolSession {
     ) {
         if let error = json["error"],
            !(error is NSNull) {
-            onStatus?("Pool-Fehler: \(error)")
+
+            if pendingSubmitIDs.remove(id) != nil {
+                onStatus?("Share abgelehnt: \(error)")
+            } else {
+                onStatus?("Pool-Fehler: \(error)")
+            }
+
             return
         }
 
@@ -146,19 +199,27 @@ public final class StratumPoolSession {
             extraNonce2Size = nonce2Size
 
             onStatus?("Pool-Verbindung vorbereitet")
-
             authorize()
         }
 
         if id == authorizeID {
             let success = json["result"] as? Bool ?? false
-
             authorized = success
 
             onStatus?(
                 success
                 ? "Pool-Anmeldung erfolgreich"
                 : "Pool-Anmeldung abgelehnt"
+            )
+        }
+
+        if pendingSubmitIDs.remove(id) != nil {
+            let accepted = json["result"] as? Bool ?? false
+
+            onStatus?(
+                accepted
+                ? "Share vom Pool akzeptiert"
+                : "Share vom Pool abgelehnt"
             )
         }
     }
@@ -201,12 +262,25 @@ public final class StratumPoolSession {
         }
     }
 
+    private func isHex(_ value: String) -> Bool {
+        guard !value.isEmpty, value.count % 2 == 0 else {
+            return false
+        }
+
+        return value.unicodeScalars.allSatisfy { scalar in
+            (scalar.value >= 48 && scalar.value <= 57) ||
+            (scalar.value >= 65 && scalar.value <= 70) ||
+            (scalar.value >= 97 && scalar.value <= 102)
+        }
+    }
+
     public func disconnect() {
         client.disconnect()
 
         buffer = ""
         authorized = false
         subscriptionSent = false
+        pendingSubmitIDs.removeAll()
 
         extraNonce1 = nil
         extraNonce2Size = nil
