@@ -17,21 +17,24 @@ public enum MerkleTree {
             throw MerkleTreeError.invalidHashLength
         }
 
-        var root = coinbaseHash
+        // Stratum überträgt Hashes in umgekehrter Byte-Reihenfolge.
+        var root = Data(coinbaseHash.reversed())
 
         for branch in branches {
             guard branch.count == 32 else {
                 throw MerkleTreeError.invalidHashLength
             }
 
+            let reversedBranch = Data(branch.reversed())
+
             var combined = Data()
             combined.append(root)
-            combined.append(branch)
+            combined.append(reversedBranch)
 
             root = BitcoinHash.sha256d(combined)
         }
 
-        return root
+        return Data(root.reversed())
     }
 
     public static func calculateRoot(
