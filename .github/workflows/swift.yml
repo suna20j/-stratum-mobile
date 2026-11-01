@@ -1,73 +1,37 @@
-name: test-and-build
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
-jobs:
-  test:
-    name: Swift Tests
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Show Swift version
-        run: swift --version
-      - name: Run Swift tests
-        run: swift test
-  build:
-    name: Build iOS Simulator App
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install XcodeGen
-        run: brew install xcodegen
-      - name: Generate Xcode project
-        run: |
-          set -e
-          echo "Repository files:"
-          ls -la
-          if [ ! -f project.yml ]; then
-            echo "ERROR: project.yml not found"
-            exit 1
-          fi
-          xcodegen generate --spec project.yml
-          echo "Generated project:"
-          ls -la *.xcodeproj
-      - name: Verify project and scheme
-        run: |
-          set -e
-          PROJECT="StratumMobile.xcodeproj"
-          SCHEME="StratumMobileApp"
-          if [ ! -d "$PROJECT" ]; then
-            echo "ERROR: $PROJECT not found"
-            find . -name "*.xcodeproj" -print
-            exit 1
-          fi
-          xcodebuild -list -project "$PROJECT"
-          if ! xcodebuild -list -project "$PROJECT" | grep -q "$SCHEME"; then
-            echo "ERROR: Scheme $SCHEME not found"
-            exit 1
-          fi
-      - name: Build iOS Simulator app
-        run: |
-          set -e
-          xcodebuild \
-            -project StratumMobile.xcodeproj \
-            -scheme StratumMobileApp \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            build
-      - name: Upload app artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: StratumMobile-iOS-Simulator
-          path: build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
-          if-no-files-found: error
+name: StratumMobile
+
+options:
+  bundleIdPrefix: com.suna20j
+  deploymentTarget:
+    iOS: "16.0"
+
+targets:
+  StratumMobileCore:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Sources/StratumMobileCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.suna20j.stratummobile.core
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.9"
+
+  StratumMobileApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/StratumMobileApp
+    dependencies:
+      - target: StratumMobileCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.suna20j.stratummobile
+        PRODUCT_NAME: StratumMobile
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Stratum Mobile
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        CODE_SIGNING_ALLOWED: NO
