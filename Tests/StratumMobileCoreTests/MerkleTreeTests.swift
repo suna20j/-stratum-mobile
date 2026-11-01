@@ -14,10 +14,7 @@ final class MerkleTreeTests: XCTestCase {
             branches: []
         )
 
-        XCTAssertEqual(
-            root,
-            Data(coinbaseHash.reversed())
-        )
+        XCTAssertEqual(root, coinbaseHash)
     }
 
     func testInvalidCoinbaseHashLengthThrows() {
@@ -61,5 +58,17 @@ final class MerkleTreeTests: XCTestCase {
             root,
             Data(repeating: 0x11, count: 32)
         )
+    }
+
+    func testSingleBranchProduces32ByteRoot() throws {
+        let coinbaseHash = Data(repeating: 0x11, count: 32)
+        let branch = Data(repeating: 0x22, count: 32)
+
+        let root = try MerkleTree.calculateRoot(
+            coinbaseHash: coinbaseHash,
+            branches: [branch]
+        )
+
+        XCTAssertEqual(root.count, 32)
     }
 }
