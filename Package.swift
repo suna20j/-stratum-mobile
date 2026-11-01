@@ -11,12 +11,21 @@ let package = Package(
         .library(
             name: "StratumMobileCore",
             targets: ["StratumMobileCore"]
+        ),
+        .executable(
+            name: "StratumMobileApp",
+            targets: ["StratumMobileApp"]
         )
     ],
     targets: [
         .target(
             name: "StratumMobileCore",
             path: "Sources/StratumMobileCore"
+        ),
+        .executableTarget(
+            name: "StratumMobileApp",
+            dependencies: ["StratumMobileCore"],
+            path: "Sources/StratumMobileApp"
         ),
         .testTarget(
             name: "StratumMobileCoreTests",
