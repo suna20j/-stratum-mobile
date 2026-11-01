@@ -1,6 +1,4 @@
-
 name: test-and-build
-
 on:
   push:
     branches:
@@ -9,83 +7,64 @@ on:
     branches:
       - main
   workflow_dispatch:
-
 jobs:
   test:
     name: Swift Tests
     runs-on: macos-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Show Swift version
         run: swift --version
-
       - name: Run Swift tests
         run: swift test
-
   build:
     name: Build iOS Simulator App
     runs-on: macos-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Install XcodeGen
         run: brew install xcodegen
-
       - name: Generate Xcode project
         run: |
+          set -e
           echo "Repository files:"
           ls -la
-
-          echo "Generating project from project.yml"
+          if [ ! -f project.yml ]; then
+            echo "ERROR: project.yml not found"
+            exit 1
+          fi
           xcodegen generate --spec project.yml
-
-          echo "Generated projects:"
-          find . -name "*.xcodeproj" -print
-
-      - name: Find project and scheme
-        id: project
+          echo "Generated project:"
+          ls -la *.xcodeproj
+      - name: Verify project and scheme
         run: |
-          PROJECT=$(find . -maxdepth 5 -name "*.xcodeproj" -print -quit)
-
-          if [ -z "$PROJECT" ]; then
-            echo "ERROR: No Xcode project found"
+          set -e
+          PROJECT="StratumMobile.xcodeproj"
+          SCHEME="StratumMobileApp"
+          if [ ! -d "$PROJECT" ]; then
+            echo "ERROR: $PROJECT not found"
+            find . -name "*.xcodeproj" -print
             exit 1
           fi
-
-          echo "Project found: $PROJECT"
-
           xcodebuild -list -project "$PROJECT"
-
-          SCHEME=$(xcodebuild -list -json -project "$PROJECT" | \
-            python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["project"]["schemes"][0])')
-
-          if [ -z "$SCHEME" ]; then
-            echo "ERROR: No Xcode scheme found"
+          if ! xcodebuild -list -project "$PROJECT" | grep -q "$SCHEME"; then
+            echo "ERROR: Scheme $SCHEME not found"
             exit 1
           fi
-
-          echo "Scheme found: $SCHEME"
-
-          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
-          echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
-
       - name: Build iOS Simulator app
         run: |
+          set -e
           xcodebuild \
-            -project "${{ steps.project.outputs.project }}" \
-            -scheme "${{ steps.project.outputs.scheme }}" \
+            -project StratumMobile.xcodeproj \
+            -scheme StratumMobileApp \
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             build
-
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
         with:
