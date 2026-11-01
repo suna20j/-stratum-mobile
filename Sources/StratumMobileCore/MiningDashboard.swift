@@ -143,7 +143,7 @@ public struct MiningDashboard: View {
 
         let session = StratumPoolSession(
             workerName: "12hussein.iphone",
-            password: "x"
+            password: "anything123"
         )
 
         session.onStatus = { message in
