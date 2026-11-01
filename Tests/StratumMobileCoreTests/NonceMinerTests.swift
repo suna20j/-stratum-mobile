@@ -71,4 +71,30 @@ final class NonceMinerTests: XCTestCase {
             NonceMiner.meetsTarget(hash: hash, target: target)
         )
     }
+
+    func testScanFindsNonceWithEasyTarget() throws {
+        let zeroHash = Data(repeating: 0x00, count: 32)
+
+        let header = try BitcoinHeader(
+            version: 1,
+            previousBlockHash: zeroHash,
+            merkleRoot: zeroHash,
+            timestamp: 1,
+            bits: 1,
+            nonce: 0
+        )
+
+        let easyTarget = Data(repeating: 0xFF, count: 32)
+
+        let result = NonceMiner.scan(
+            header: header,
+            startingNonce: 0,
+            count: 10,
+            target: easyTarget
+        )
+
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.nonce, 0)
+        XCTAssertEqual(result?.hashesChecked, 1)
+    }
 }
