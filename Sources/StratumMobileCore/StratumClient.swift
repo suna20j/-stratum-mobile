@@ -21,19 +21,21 @@ public final class StratumClient {
     }
 
     public func connect() {
-        let connection = NWConnection(
+        disconnect()
+
+        let newConnection = NWConnection(
             host: host,
             port: port,
             using: .tcp
         )
 
-        self.connection = connection
+        connection = newConnection
 
-        connection.stateUpdateHandler = { [weak self] state in
+        newConnection.stateUpdateHandler = { [weak self] state in
             switch state {
             case .ready:
                 self?.onStateChange?("Verbunden")
-                self?.receive()
+                self?.receive(from: newConnection)
 
             case .failed(let error):
                 self?.onStateChange?(
@@ -48,11 +50,14 @@ public final class StratumClient {
             }
         }
 
-        connection.start(queue: queue)
+        newConnection.start(queue: queue)
     }
 
     public func send(_ message: String) {
-        guard let connection else { return }
+        guard let connection else {
+            onStateChange?("Sendefehler: Keine Verbindung")
+            return
+        }
 
         let data = Data((message + "\n").utf8)
 
@@ -68,30 +73,34 @@ public final class StratumClient {
         )
     }
 
-    private func receive() {
-        connection?.receive(
+    private func receive(from connection: NWConnection) {
+        connection.receive(
             minimumIncompleteLength: 1,
             maximumLength: 4096
         ) { [weak self] data, _, isComplete, error in
 
+            guard let self else { return }
+
             if let data,
+               !data.isEmpty,
                let text = String(data: data, encoding: .utf8) {
-                self?.onMessage?(text)
+                self.onMessage?(text)
             }
 
             if let error {
-                self?.onStateChange?(
+                self.onStateChange?(
                     "Empfangsfehler: \(error.localizedDescription)"
                 )
             } else if isComplete {
-                self?.onStateChange?("Verbindung geschlossen")
+                self.onStateChange?("Verbindung geschlossen")
             } else {
-                self?.receive()
+                self.receive(from: connection)
             }
         }
     }
 
     public func disconnect() {
+        connection?.stateUpdateHandler = nil
         connection?.cancel()
         connection = nil
     }
