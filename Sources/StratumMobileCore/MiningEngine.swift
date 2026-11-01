@@ -21,24 +21,48 @@ public final class MiningEngine {
         )
 
         poolSession.onStatus = { [weak self] status in
-            self?.isConnected = status.contains("Verbunden")
-                || status.contains("erfolgreich")
+            guard let self else { return }
 
-            self?.onStatus?(status)
+            switch status {
+            case "Pool-Anmeldung erfolgreich":
+                self.isConnected = true
+
+            case "Getrennt",
+                 "Pool-Anmeldung abgelehnt",
+                 "Mining-Verbindung beendet":
+                self.isConnected = false
+
+            default:
+                if status.contains("Verbindungsfehler")
+                    || status.contains("Empfangsfehler")
+                    || status.contains("Sendefehler")
+                    || status.contains("Pool-Fehler") {
+                    self.isConnected = false
+                }
+            }
+
+            self.onStatus?(status)
         }
 
         poolSession.onJob = { [weak self] job in
             guard let self else { return }
 
             self.receivedJobs += 1
+
             self.onStatus?(
                 "Mining-Auftrag empfangen: \(job.jobID)"
             )
+
             self.onJobReceived?(job)
         }
     }
 
     public func start() {
+        guard !isConnected else {
+            onStatus?("Bereits angemeldet")
+            return
+        }
+
         onStatus?("Starte Verbindung zu Braiins Pool...")
         poolSession.connect()
     }
