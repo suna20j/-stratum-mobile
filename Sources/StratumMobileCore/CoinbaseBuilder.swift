@@ -21,6 +21,11 @@ public enum CoinbaseBuilder {
             throw CoinbaseBuilderError.invalidExtranonceSize
         }
 
+        guard extraNonce1.count > 0,
+              extraNonce1.count % 2 == 0 else {
+            throw CoinbaseBuilderError.invalidHex
+        }
+
         let completeHex =
             coinbasePart1 +
             extraNonce1 +
