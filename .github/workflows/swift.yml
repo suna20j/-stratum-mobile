@@ -33,12 +33,26 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: |
+          pwd
+          ls -la
+          xcodegen generate --spec project.yml
+          find . -maxdepth 4 -name "*.xcodeproj" -print
 
       - name: Build iOS Simulator app
         run: |
+          PROJECT=$(find . -maxdepth 4 -name "*.xcodeproj" -print -quit)
+
+          if [ -z "$PROJECT" ]; then
+            echo "ERROR: No .xcodeproj file was generated."
+            find . -maxdepth 4 -type f -name "project.yml" -o -name "*.xcodeproj"
+            exit 1
+          fi
+
+          echo "Using project: $PROJECT"
+
           xcodebuild \
-            -project StratumMobile.xcodeproj \
+            -project "$PROJECT" \
             -scheme StratumMobileApp \
             -configuration Debug \
             -sdk iphonesimulator \
