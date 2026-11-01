@@ -47,4 +47,28 @@ final class NonceMinerTests: XCTestCase {
             NonceMiner.meetsTarget(hash: hash, target: target)
         )
     }
+
+    func testByteOrderComparison() {
+        var hash = Data(repeating: 0x00, count: 32)
+        var target = Data(repeating: 0x00, count: 32)
+
+        hash[0] = 0x01
+        target[31] = 0x02
+
+        XCTAssertTrue(
+            NonceMiner.meetsTarget(hash: hash, target: target)
+        )
+    }
+
+    func testHashJustAboveTargetIsRejected() {
+        var hash = Data(repeating: 0x00, count: 32)
+        var target = Data(repeating: 0x00, count: 32)
+
+        hash[0] = 0x02
+        target[31] = 0x01
+
+        XCTAssertFalse(
+            NonceMiner.meetsTarget(hash: hash, target: target)
+        )
+    }
 }
