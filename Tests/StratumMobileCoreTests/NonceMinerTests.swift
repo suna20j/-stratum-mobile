@@ -97,4 +97,40 @@ final class NonceMinerTests: XCTestCase {
         XCTAssertEqual(result?.nonce, 0)
         XCTAssertEqual(result?.hashesChecked, 1)
     }
+
+    func testDifficultyOneTarget() throws {
+        let target = try ShareTarget.calculate(difficulty: 1.0)
+
+        let expectedHex =
+            "00000000ffff0000000000000000000000000000000000000000000000000000"
+
+        XCTAssertEqual(
+            BitcoinHash.toHex(target),
+            expectedHex
+        )
+    }
+
+    func testDifficultyTwoTarget() throws {
+        let target = try ShareTarget.calculate(difficulty: 2.0)
+
+        let expectedHex =
+            "000000007fff8000000000000000000000000000000000000000000000000000"
+
+        XCTAssertEqual(
+            BitcoinHash.toHex(target),
+            expectedHex
+        )
+    }
+
+    func testZeroDifficultyIsRejected() {
+        XCTAssertThrowsError(
+            try ShareTarget.calculate(difficulty: 0)
+        )
+    }
+
+    func testNegativeDifficultyIsRejected() {
+        XCTAssertThrowsError(
+            try ShareTarget.calculate(difficulty: -1)
+        )
+    }
 }
