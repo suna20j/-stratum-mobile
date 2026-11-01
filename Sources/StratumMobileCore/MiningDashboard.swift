@@ -1,5 +1,6 @@
 
 import SwiftUI
+import CryptoKit
 import Foundation
 
 public struct MiningDashboard: View {
@@ -7,112 +8,114 @@ public struct MiningDashboard: View {
     @State private var hashRate = 0.0
     @State private var elapsed = 0.0
     @State private var totalHashes = 0
+    @State private var status = "Bereit"
 
     public init() {}
 
     public var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                Text("STRATUM MOBILE")
-                    .font(.largeTitle.bold())
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 22) {
+                    Image(systemName: "bitcoinsign.circle.fill")
+                        .font(.system(size: 58))
+                        .foregroundStyle(.orange)
 
-                Text("Bitcoin SHA-256d Benchmark")
-                    .foregroundStyle(.secondary)
+                    Text("STRATUM MOBILE")
+                        .font(.largeTitle.bold())
 
-                VStack(spacing: 12) {
-                    Text("HASHRATE")
-                        .font(.headline)
-
-                    Text(
-                        hashRate.formatted(
-                            .number.precision(.fractionLength(0))
-                        ) + " H/s"
-                    )
-                    .font(.system(size: 42, weight: .bold))
-                    .foregroundStyle(.green)
-
-                    Text("Lokale Rechenleistung")
+                    Text("Bitcoin SHA-256d Benchmark")
                         .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(.gray.opacity(0.12))
-                .cornerRadius(18)
 
-                HStack(spacing: 12) {
-                    statCard(
-                        title: "Laufzeit",
-                        value: String(format: "%.2f s", elapsed)
-                    )
+                    VStack(spacing: 8) {
+                        Text("HASHRATE")
+                            .font(.headline)
 
-                    statCard(
-                        title: "Hashes",
-                        value: "\(totalHashes)"
-                    )
-                }
+                        Text(String(format: "%.2f H/s", hashRate))
+                            .font(.system(size: 34, weight: .bold))
+                            .foregroundStyle(.green)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.gray.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
 
-                Button {
-                    startBenchmark()
-                } label: {
-                    Text(isRunning ? "Läuft..." : "Benchmark starten")
+                    HStack {
+                        statistic("Hashes", "\(totalHashes)")
+                        statistic("Zeit", String(format: "%.1f s", elapsed))
+                    }
+
+                    Text(status)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        startBenchmark()
+                    } label: {
+                        Label(
+                            isRunning ? "Läuft..." : "Benchmark starten",
+                            systemImage: "play.fill"
+                        )
                         .frame(maxWidth: .infinity)
                         .padding()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isRunning)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                    .disabled(isRunning)
 
-                Button("Stopp") {
-                    isRunning = false
+                    Text("Hinweis: Dies ist ein lokaler SHA-256d-Test. Keine Pool-Verbindung und keine echten Bitcoin-Erträge.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                .disabled(!isRunning)
-
-                Text("Nur lokaler Benchmark. Kein Pool-Mining und keine BTC-Einnahmen.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                .padding()
             }
-            .padding()
+            .navigationTitle("Mining Dashboard")
         }
     }
 
-    private func statCard(
-        title: String,
-        value: String
-    ) -> some View {
+    private func statistic(_ title: String, _ value: String) -> some View {
         VStack(spacing: 8) {
             Text(title)
                 .font(.caption)
-
+                .foregroundStyle(.secondary)
             Text(value)
                 .font(.headline)
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(.gray.opacity(0.12))
-        .cornerRadius(14)
+        .background(Color.gray.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     private func startBenchmark() {
         guard !isRunning else { return }
 
         isRunning = true
+        status = "Benchmark läuft..."
         hashRate = 0
         elapsed = 0
         totalHashes = 0
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = MiningBenchmark.run(
-                iterations: 100_000
-            )
+        Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                let start = Date()
+                let iterations = 10_000
 
-            DispatchQueue.main.async {
-                guard isRunning else { return }
+                for i in 0..<iterations {
+                    let input = Data("StratumMobile-\(i)".utf8)
+                    let first = SHA256.hash(data: input)
+                    _ = SHA256.hash(data: Data(first))
+                }
 
-                hashRate = result.hashesPerSecond
-                elapsed = result.elapsedSeconds
-                totalHashes = result.iterations
-                isRunning = false
-            }
+                let duration = max(Date().timeIntervalSince(start), 0.001)
+                return (iterations, duration)
+            }.value
+
+            hashRate = Double(result.0) / result.1
+            elapsed = result.1
+            totalHashes = result.0
+            status = "Benchmark abgeschlossen"
+            isRunning = false
         }
     }
 }
