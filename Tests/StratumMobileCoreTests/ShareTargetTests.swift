@@ -19,19 +19,29 @@ final class ShareTargetTests: XCTestCase {
 
     func testInvalidDifficultyZero() {
         XCTAssertThrowsError(
-            try ShareTarget.calculate(difficulty: 0)
+            try ShareTarget.calculate(difficulty: 0.0)
         )
     }
 
     func testInvalidNegativeDifficulty() {
         XCTAssertThrowsError(
-            try ShareTarget.calculate(difficulty: -1)
+            try ShareTarget.calculate(difficulty: -1.0)
         )
     }
 
     func testInvalidInfiniteDifficulty() {
         XCTAssertThrowsError(
-            try ShareTarget.calculate(difficulty: .infinity)
+            try ShareTarget.calculate(
+                difficulty: Double.infinity
+            )
+        )
+    }
+
+    func testInvalidNaNDifficulty() {
+        XCTAssertThrowsError(
+            try ShareTarget.calculate(
+                difficulty: Double.nan
+            )
         )
     }
 }
