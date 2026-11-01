@@ -37,6 +37,41 @@ public struct BitcoinHeader {
         self.nonce = nonce
     }
 
+    /// Builds a header from the hexadecimal fields received
+    /// in a Stratum mining.notify message.
+    public init(
+        stratumVersion: String,
+        stratumPreviousHash: String,
+        merkleRoot: Data,
+        stratumTimestamp: String,
+        stratumBits: String,
+        nonce: UInt32 = 0
+    ) throws {
+
+        guard
+            let version = UInt32(stratumVersion, radix: 16),
+            let timestamp = UInt32(stratumTimestamp, radix: 16),
+            let bits = UInt32(stratumBits, radix: 16)
+        else {
+            throw BitcoinHeaderError.invalidHex
+        }
+
+        let previousHash = try Self.decodeHex(stratumPreviousHash)
+
+        guard previousHash.count == 32 else {
+            throw BitcoinHeaderError.invalidFieldLength
+        }
+
+        try self.init(
+            version: version,
+            previousBlockHash: Self.reverseBytes(previousHash),
+            merkleRoot: merkleRoot,
+            timestamp: timestamp,
+            bits: bits,
+            nonce: nonce
+        )
+    }
+
     public func serialize() -> Data {
         var data = Data()
 
@@ -65,6 +100,10 @@ public struct BitcoinHeader {
         }
     }
 
+    public static func reverseBytes(_ data: Data) -> Data {
+        Data(data.reversed())
+    }
+
     public static func decodeHex(_ hex: String) throws -> Data {
         let cleanHex = hex.trimmingCharacters(
             in: .whitespacesAndNewlines
@@ -75,7 +114,6 @@ public struct BitcoinHeader {
         }
 
         var result = Data()
-
         var index = cleanHex.startIndex
 
         while index < cleanHex.endIndex {
