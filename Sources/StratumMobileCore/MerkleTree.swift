@@ -8,6 +8,8 @@ public enum MerkleTreeError: Error {
 
 public enum MerkleTree {
 
+    /// Calculates the Merkle root from the coinbase transaction hash
+    /// and the Merkle branches received from a Stratum job.
     public static func calculateRoot(
         coinbaseHash: Data,
         branches: [Data]
@@ -17,7 +19,8 @@ public enum MerkleTree {
             throw MerkleTreeError.invalidHashLength
         }
 
-        // Stratum überträgt Hashes in umgekehrter Byte-Reihenfolge.
+        // Stratum merkle branches are provided in display byte order.
+        // Hashes are combined internally in Bitcoin's byte order.
         var root = Data(coinbaseHash.reversed())
 
         for branch in branches {
@@ -25,15 +28,16 @@ public enum MerkleTree {
                 throw MerkleTreeError.invalidHashLength
             }
 
-            let reversedBranch = Data(branch.reversed())
+            let internalBranch = Data(branch.reversed())
 
             var combined = Data()
             combined.append(root)
-            combined.append(reversedBranch)
+            combined.append(internalBranch)
 
             root = BitcoinHash.sha256d(combined)
         }
 
+        // Return the Merkle root in display byte order.
         return Data(root.reversed())
     }
 
@@ -53,6 +57,20 @@ public enum MerkleTree {
 
             return data
         }
+
+        return try calculateRoot(
+            coinbaseHash: coinbaseHash,
+            branches: branches
+        )
+    }
+
+    /// Calculates the coinbase transaction hash and then the Merkle root.
+    public static func calculateRoot(
+        coinbaseTransaction: Data,
+        branches: [Data]
+    ) throws -> Data {
+
+        let coinbaseHash = BitcoinHash.sha256d(coinbaseTransaction)
 
         return try calculateRoot(
             coinbaseHash: coinbaseHash,
