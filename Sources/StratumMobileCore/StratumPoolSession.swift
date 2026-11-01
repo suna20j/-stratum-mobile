@@ -12,10 +12,11 @@ public final class StratumPoolSession {
 
     public var onStatus: ((String) -> Void)?
     public var onMessage: ((String) -> Void)?
+    public var onJob: ((StratumJob) -> Void)?
 
     public init(
         workerName: String,
-        password: String = "anything123"
+        password: String = "x"
     ) {
         self.workerName = workerName
         self.password = password
@@ -49,7 +50,6 @@ public final class StratumPoolSession {
             "method": "mining.subscribe",
             "params": ["StratumMobile/1.0"]
         ])
-
         nextID += 1
 
         send([
@@ -57,7 +57,6 @@ public final class StratumPoolSession {
             "method": "mining.authorize",
             "params": [workerName, password]
         ])
-
         nextID += 1
     }
 
@@ -86,31 +85,48 @@ public final class StratumPoolSession {
             guard !line.isEmpty else { continue }
 
             onMessage?(line)
+            processLine(line)
+        }
+    }
 
-            if let data = line.data(using: .utf8),
-               let json = try? JSONSerialization.jsonObject(
-                   with: data
-               ) as? [String: Any] {
+    private func processLine(_ line: String) {
+        guard
+            let data = line.data(using: .utf8),
+            let json = try? JSONSerialization.jsonObject(
+                with: data
+            ) as? [String: Any]
+        else {
+            return
+        }
 
-                if let method = json["method"] as? String {
-                    onStatus?("Pool-Nachricht: \(method)")
+        if let method = json["method"] as? String {
+            if method == "mining.notify" {
+                if let job = StratumJob(jsonLine: line) {
+                    onJob?(job)
+                    onStatus?("Mining-Auftrag empfangen: \(job.jobID)")
                 }
-
-                if let result = json["result"] as? Bool,
-                   result == true {
-                    onStatus?("Anmeldung erfolgreich")
-                }
-
-                if let error = json["error"],
-                   !(error is NSNull) {
-                    onStatus?("Pool hat eine Anfrage abgelehnt")
-                }
+            } else {
+                onStatus?("Pool-Nachricht: \(method)")
             }
+        }
+
+        if let result = json["result"] as? Bool {
+            if result {
+                onStatus?("Pool-Anmeldung erfolgreich")
+            } else {
+                onStatus?("Pool-Anmeldung abgelehnt")
+            }
+        }
+
+        if let error = json["error"],
+           !(error is NSNull) {
+            onStatus?("Pool hat eine Anfrage abgelehnt")
         }
     }
 
     public func disconnect() {
         client.disconnect()
+        buffer = ""
         onStatus?("Getrennt")
     }
 }
