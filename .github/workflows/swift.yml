@@ -1,5 +1,5 @@
 
-name: Swift Tests and iOS Build
+name: test-and-build
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-and-build:
+  test:
     runs-on: macos-latest
 
     steps:
@@ -22,6 +22,13 @@ jobs:
       - name: Run Swift tests
         run: swift test
 
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
@@ -33,9 +40,10 @@ jobs:
           xcodebuild \
             -project StratumMobile.xcodeproj \
             -scheme StratumMobileApp \
-            -sdk iphonesimulator \
             -configuration Debug \
+            -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             build
 
@@ -43,5 +51,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: StratumMobile-iOS-Simulator
-          path: build/Build/Products/Debug-iphonesimulator/StratumMobileApp.app
+          path: build/DerivedData/Build/Products/Debug-iphonesimulator/StratumMobileApp.app
           if-no-files-found: error
