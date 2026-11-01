@@ -53,12 +53,15 @@ public struct MiningDashboard: View {
                         Text(status)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
 
                         Button {
                             connectToPool()
                         } label: {
                             Label(
-                                isConnecting ? "Verbinde..." : "Mit Braiins verbinden",
+                                isConnecting
+                                    ? "Verbinde..."
+                                    : "Mit Braiins verbinden",
                                 systemImage: "network"
                             )
                             .frame(maxWidth: .infinity)
@@ -71,9 +74,12 @@ public struct MiningDashboard: View {
                         Button {
                             disconnectFromPool()
                         } label: {
-                            Label("Verbindung trennen", systemImage: "xmark.circle")
-                                .frame(maxWidth: .infinity)
-                                .padding()
+                            Label(
+                                "Verbindung trennen",
+                                systemImage: "xmark.circle"
+                            )
+                            .frame(maxWidth: .infinity)
+                            .padding()
                         }
                         .buttonStyle(.bordered)
                         .disabled(poolSession == nil)
@@ -96,10 +102,14 @@ public struct MiningDashboard: View {
                     .tint(.orange)
                     .disabled(isRunning)
 
-                    Text("Der Benchmark berechnet lokale Test-Hashes. Eine Pool-Verbindung allein bedeutet noch kein echtes Mining oder Bitcoin-Erträge.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                    Text(
+                        "Der Benchmark berechnet lokale Test-Hashes. " +
+                        "Eine Pool-Verbindung allein bedeutet noch kein " +
+                        "echtes Mining oder Bitcoin-Erträge."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                 }
                 .padding()
             }
@@ -107,7 +117,10 @@ public struct MiningDashboard: View {
         }
     }
 
-    private func statistic(_ title: String, _ value: String) -> some View {
+    private func statistic(
+        _ title: String,
+        _ value: String
+    ) -> some View {
         VStack(spacing: 8) {
             Text(title)
                 .font(.caption)
@@ -130,23 +143,33 @@ public struct MiningDashboard: View {
 
         let session = StratumPoolSession(
             workerName: "12hussein.iphone",
-            password: "anything123"
+            password: "x"
         )
 
         session.onStatus = { message in
             DispatchQueue.main.async {
                 status = message
 
-                if message == "Verbunden" ||
-                   message == "Anmeldung erfolgreich" {
+                if message == "Pool-Anmeldung erfolgreich" {
                     isConnecting = false
                 }
 
-                if message.contains("Fehler") ||
-                   message == "Getrennt" {
+                if message == "Pool-Anmeldung abgelehnt"
+                    || message == "Getrennt"
+                    || message == "Verbindung geschlossen"
+                    || message.contains("Verbindungsfehler")
+                    || message.contains("Empfangsfehler")
+                    || message.contains("Sendefehler")
+                    || message.contains("Pool-Fehler") {
                     isConnecting = false
                     poolSession = nil
                 }
+            }
+        }
+
+        session.onJob = { job in
+            DispatchQueue.main.async {
+                status = "Mining-Auftrag empfangen: \(job.jobID)"
             }
         }
 
@@ -171,7 +194,9 @@ public struct MiningDashboard: View {
         totalHashes = 0
 
         Task {
-            let result = await Task.detached(priority: .userInitiated) {
+            let result = await Task.detached(
+                priority: .userInitiated
+            ) {
                 let start = Date()
                 let iterations = 10_000
 
@@ -193,6 +218,7 @@ public struct MiningDashboard: View {
             elapsed = result.1
             totalHashes = result.0
             isRunning = false
+            status = "Benchmark abgeschlossen"
         }
     }
 }
