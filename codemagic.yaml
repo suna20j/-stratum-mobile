@@ -1,0 +1,27 @@
+workflows:
+  ios-iphone:
+    name: Stratum Mobile iPhone
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: com.suna20j.stratummobile
+    scripts:
+      - name: Generate Xcode project
+        script: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Apply signing profiles
+        script: |
+          xcode-project use-profiles
+      - name: Build signed iPhone IPA
+        script: |
+          xcode-project build-ipa \
+            --project StratumMobile.xcodeproj \
+            --scheme StratumMobileApp \
+            --configuration Release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/**/*.xcarchive
